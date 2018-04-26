@@ -25,6 +25,7 @@ from django.conf import settings
 from django.db import models, transaction
 from django.db.backends.utils import truncate_name
 from django.template import loader
+from django.urls import reverse
 from django.utils import timezone
 
 from instance import gandi
@@ -63,6 +64,13 @@ class OpenEdXInstance(DomainNameInstance, LoadBalancedInstance, OpenEdXAppConfig
 
     def __str__(self):
         return "{} ({})".format(self.name, self.domain)
+
+    def get_absolute_url(self):
+        """
+        Return link to the instance admin page, e.g. /instance/210/
+        This link is shown in Django's admin.
+        """
+        return reverse('instance:index') + str(self.ref.id) + "/"
 
     def get_active_appservers(self):
         """
