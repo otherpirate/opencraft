@@ -36,12 +36,10 @@ from instance.models.openedx_instance import OpenEdXInstance
 LOG = logging.getLogger(__name__)
 
 # Desired destination region for S3 bucket.
-# TODO: actually we should store each instance's S3 region as a field, same as we do with SWIFT. It could be autodetected to be the same as the SWIFT region for each instance. Or we can force it to be Paris for all. In any case we must store in each instance, and remove it from here
-# S3_REGION = 'eu-west-3'  # Paris. But requires AWS v4 signature:  "The authorization mechanism you have provided is not supported. Please use AWS4-HMAC-SHA256."
-# S3_REGION = 'eu-central-1'  # Frankfurt.  But it seems it also requires AWS v4 though it succeeds in creating the bucket anyway. It returns the AWS v4 error first and then another one saying "Your previous request to create the named bucket succeeded and you already own it.". It would require more research
-S3_REGION = 'eu-west-1'  # Ireland. Doesn't seem to require AWS v4, and doesn't fail either
-# S3_REGION = 'us-east-1'  # N. Virginia
-
+# This will be saved in instance.s3_region
+# Different regions have different requirements; see https://docs.google.com/document/d/1H8iUa05nSD6puQQoUf3DTfPb3gtUFGKtKjUNMKoWAAg/edit#
+# Recommended: '' (default) and 'eu-west-1' (Ireland)
+S3_REGION = 'eu-west-1'
 
 # Classes #####################################################################
 
@@ -207,6 +205,7 @@ class Command(BaseCommand):
             LOG.info("Did everything work? To change this instance to S3 type, press ENTER")
             input()
             instance.storage_type = 's3'
+            instance.s3_region = S3_REGION
             instance.save()
             # This could be automated if it will save work
             LOG.info("Please spawn a server yourself for instance %i, then test it and activate it", instance.id)
