@@ -19,6 +19,24 @@
 """
 Migrate SWIFT assets to S3.
 One-time script.
+
+
+Detailed process to migrate 1 server:
+- download all SWIFT files to local with rclone, as a reference and backup and as a guide to know what you'll be copying
+- check and take note of the current status settings of the instance to migrate
+- set into the script the IDs of the instances to migrate
+- also set the region (use Ireland)
+- enable all conditional parts (change the "if 0:" to "if 1:") the first time. When you re-run it you may use this to skip some migration steps or for debugging
+- run script, from Ocim production (just place the file and run it, no need to change branches). The command is: honcho -e .env run ./manage.py migrate_swift_to_s3
+- let the script copy everything, watch for errors, re-run if it fails (some AWS things take time and you may need to wait some seconds between re-runs)
+- when the script successfully copies files, let it save() the instance with the new settings
+- check settings and deploy new server with the blue button
+- wait 2 h and test it
+- to be extra careful: download the files from SWIFT again and compare with them with the first download. If they differ it means files changed during those 2 h; then do a 2nd SWIFT→S3 sync to keep them up to date, then activate the new server
+- if the server doesn't work, don't activate it; restore storage_type to swift (you may delete the IAM user and bucket too, from the AWS web interface)
+- optional: delete old files from the SWIFT container (from OVH), delete the container, and delete SWIFT settings from the OpenEdXInstance object
+- delete ~/.config/rclone/ if still there
+
 """
 
 # Imports #####################################################################
