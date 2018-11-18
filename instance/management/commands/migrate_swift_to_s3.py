@@ -34,6 +34,7 @@ Detailed process to migrate 1 server:
 - wait 2 h and test it
 - to be extra careful: download the files from SWIFT again and compare with them with the first download. If they differ it means files changed during those 2 h; then do a 2nd SWIFT→S3 sync to keep them up to date, then activate the new server
 - if the server doesn't work, don't activate it; restore storage_type to swift (you may delete the IAM user and bucket too, from the AWS web interface)
+- if the instance has high activity or constantly moving files, do a final sync after you activated the new server (from the deactivated server to the activated one). Or you could have scheduled a downtime for this
 - don't delete old files from the SWIFT container (from OVH) and so don't delete the container. The container could have been used to create URLs for uploaded images that are linked from forum posts. These URLs still point to SWIFT, and you don't want to go through mongo fixing the posts. Don't delete SWIFT settings from the OpenEdXInstance object either; it's better to leave them as they were, to show that the SWIFT container still exists
 - delete ~/.config/rclone/ if still there
 
