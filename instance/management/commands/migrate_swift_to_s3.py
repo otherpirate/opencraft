@@ -205,6 +205,15 @@ class Command(BaseCommand):
                 # special case. These files inside the submissions_attachments directory itself
                 new_name = 'submissions_attachments'
 
+            # There's another special case: we use a different "COMMON_OBJECT_STORE_LOG_SYNC_PREFIX" for SWIFT and S3
+            # In SWIFT without prefix (e.g. "logs/tracking"), in AWS with prefix (e.g. "some_host_name/logs/tracking")
+            # Real example:
+            # SWIFT: logs/tracking/i-00a5488f-149.202.175.112/tracking.log
+            #    S3: ajtest_opencraft_hosting/logs/tracking/edxapp-appserver/i-00bb2dec-213.32.77.144/tracking.log
+            # TODO: what about the infix (edxapp-appserver)
+            if new_name == 'logs':
+                new_name = '{}/{}'.format(instance.swift_container_name, 'logs')
+                
             self._copy_subdirectory(
                 base_name,
                 new_name,
@@ -248,7 +257,7 @@ class Command(BaseCommand):
         # instances = OpenEdXInstance.objects.filter(storage_type='swift')
 
         # You can use this to choose the IDs, and filter in batches
-        instances = OpenEdXInstance.objects.filter(id__in=[17, ])
+        instances = OpenEdXInstance.objects.filter(id__in=[1165, ])
 
         LOG.info("Will migrate %i instances", instances.count())
         for instance in instances:
