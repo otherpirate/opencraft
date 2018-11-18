@@ -210,10 +210,15 @@ class Command(BaseCommand):
             # Real example:
             # SWIFT: logs/tracking/i-00a5488f-149.202.175.112/tracking.log
             #    S3: ajtest_opencraft_hosting/logs/tracking/edxapp-appserver/i-00bb2dec-213.32.77.144/tracking.log
-            # TODO: what about the infix (edxapp-appserver)
+            #
             if new_name == 'logs':
                 new_name = '{}/{}'.format(instance.swift_container_name, 'logs')
-                
+
+            # TODO: what about the infix (edxapp-appserver). Transform the subfolders to add it?
+            # There's another difference in logs synced to SWIFT and S3: note the "edxapp-appserver" in
+            # "ajtest_opencraft_hosting/logs/tracking/edxapp-appserver/i-00bb2dec-213.32.77.144/tracking.log".
+            # This is our security group name, and it's added by send-logs-to-s3 but not by send-logs-to-swift
+
             self._copy_subdirectory(
                 base_name,
                 new_name,
