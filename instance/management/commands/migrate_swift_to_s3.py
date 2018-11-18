@@ -214,10 +214,11 @@ class Command(BaseCommand):
             if new_name == 'logs':
                 new_name = '{}/{}'.format(instance.swift_container_name, 'logs')
 
-            # TODO: what about the infix (edxapp-appserver). Transform the subfolders to add it?
-            # There's another difference in logs synced to SWIFT and S3: note the "edxapp-appserver" in
+            # There's another difference in logs synced to SWIFT and S3: note the infix "edxapp-appserver" in
             # "ajtest_opencraft_hosting/logs/tracking/edxapp-appserver/i-00bb2dec-213.32.77.144/tracking.log".
             # This is our security group name, and it's added by send-logs-to-s3 but not by send-logs-to-swift
+            # It's not very important because when Insights reads tracking logs, it will find them even if they're
+            # in subfolders. So we don't need to transform the new path here.
 
             self._copy_subdirectory(
                 base_name,
