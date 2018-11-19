@@ -26,16 +26,26 @@ Detailed process to migrate 1 server:
 - check and take note of the current status settings of the instance to migrate
 - set into the script the IDs of the instances to migrate
 - also set the region (use Ireland)
-- enable all conditional parts (change the "if 0:" to "if 1:") the first time. When you re-run it you may use this to skip some migration steps or for debugging
-- run script, from Ocim production (just place the file and run it, no need to change branches). The command is: honcho -e .env run ./manage.py migrate_swift_to_s3
-- let the script copy everything, watch for errors, re-run if it fails (some AWS things take time and you may need to wait some seconds between re-runs)
+- enable all conditional parts (change the "if 0:" to "if 1:") the first time. When you re-run it you may use this to
+  skip some migration steps or for debugging
+- run script, from Ocim production (just place the file and run it, no need to change branches). The command is:
+  honcho -e .env run ./manage.py migrate_swift_to_s3
+- let the script copy everything, watch for errors, re-run if it fails (some AWS things take time and you may need
+  to wait some seconds between re-runs)
 - when the script successfully copies files, let it save() the instance with the new settings
 - check settings and deploy new server with the blue button
 - wait 2 h and test it
-- to be extra careful: download the files from SWIFT again and compare with them with the first download. If they differ it means files changed during those 2 h; then do a 2nd SWIFT→S3 sync to keep them up to date, then activate the new server
-- if the server doesn't work, don't activate it; restore storage_type to swift (you may delete the IAM user and bucket too, from the AWS web interface)
-- if the instance has high activity or constantly moving files, do a final sync after you activated the new server (from the deactivated server to the activated one). Or you could have scheduled a downtime for this
-- don't delete old files from the SWIFT container (from OVH) and so don't delete the container. The container could have been used to create URLs for uploaded images that are linked from forum posts. These URLs still point to SWIFT, and you don't want to go through mongo fixing the posts. Don't delete SWIFT settings from the OpenEdXInstance object either; it's better to leave them as they were, to show that the SWIFT container still exists
+- to be extra careful: download the files from SWIFT again and compare with them with the first download. If they differ
+  it means files changed during those 2 h; then do a 2nd SWIFT→S3 sync to keep them up to date, then activate the new
+  server
+- if the server doesn't work, don't activate it; restore storage_type to swift (you may delete the IAM user and bucket
+  too, from the AWS web interface)
+- if the instance has high activity or constantly moving files, do a final sync after you activated the new server (from
+  the deactivated server to the activated one). Or you could have scheduled a downtime for this
+- don't delete old files from the SWIFT container (from OVH) and so don't delete the container. The container could
+  have been used to create URLs for uploaded images that are linked from forum posts. These URLs still point to SWIFT,
+  and you don't want to go through mongo fixing the posts. Don't delete SWIFT settings from the OpenEdXInstance
+  object either; it's better to leave them as they were, to show that the SWIFT container still exists
 - delete ~/.config/rclone/ if still there
 
 """
@@ -45,8 +55,6 @@ Detailed process to migrate 1 server:
 import logging
 import re
 import subprocess
-import time
-
 import swiftclient
 
 from django.core.management.base import BaseCommand
@@ -56,7 +64,9 @@ LOG = logging.getLogger(__name__)
 
 # Desired destination region for S3 bucket.
 # This will be saved in instance.s3_region
-# Different regions have different requirements; see https://docs.google.com/document/d/1H8iUa05nSD6puQQoUf3DTfPb3gtUFGKtKjUNMKoWAAg/edit#
+# Different regions have different requirements
+# see https://docs.google.com/document/d/1H8iUa05nSD6puQQoUf3DTfPb3gtUFGKtKjUNMKoWAAg/edit#
+#
 # Recommended: '' (default) and 'eu-west-1' (Ireland)
 S3_REGION = 'eu-west-1'
 
@@ -72,11 +82,17 @@ class Command(BaseCommand):
     )
 
     def __init__(self, *args, **kwargs):
+        """
+        Some unused options.
+        """
         super(Command, self).__init__(*args, **kwargs)
         self.options = {}
         self.retried = {}
 
     def _get_swift_connection(self, instance):
+        """
+        Get Connection object.
+        """
         return swiftclient.Connection(
             user=instance.swift_openstack_user,
             key=instance.swift_openstack_password,
@@ -90,7 +106,13 @@ class Command(BaseCommand):
         """
         Creates rclone config, for S3.
         """
-        rclone_config = "rclone config create ocim-s3 s3 access_key_id '%s' secret_access_key '%s' region '%s'" % (instance.s3_access_key, instance.s3_secret_access_key, S3_REGION)
+        rclone_config = (
+            "rclone config create ocim-s3 s3 access_key_id '%s' secret_access_key '%s' region '%s'" % (
+                instance.s3_access_key,
+                instance.s3_secret_access_key,
+                S3_REGION
+            )
+        )
         # LOG.info("Will run this command: %s", rclone_config)
         subprocess.Popen(rclone_config, shell=True)
 
@@ -98,18 +120,24 @@ class Command(BaseCommand):
         """
         Creates rclone config, for SWIFT.
         """
-        rclone_config = "rclone config create ocim-swift swift user '%s' key '%s' auth '%s' tenant '%s' auth_version '2' region '%s'" % (
-            instance.swift_openstack_user,
-            instance.swift_openstack_password,
-            instance.swift_openstack_auth_url,
-            instance.swift_openstack_tenant,
-            instance.swift_openstack_region,
+        rclone_config = (
+            "rclone config create ocim-swift swift "
+            "user '%s' key '%s' auth '%s' tenant '%s' auth_version '2' region '%s'" % (
+                instance.swift_openstack_user,
+                instance.swift_openstack_password,
+                instance.swift_openstack_auth_url,
+                instance.swift_openstack_tenant,
+                instance.swift_openstack_region,
+            )
         )
 
         # LOG.info("Will run this command: %s", rclone_config)
         subprocess.Popen(rclone_config, shell=True)
 
     def _delete_rclone_configs(self):
+        """
+        Remove temporary configs used during the migration.
+        """
         subprocess.Popen("rclone config delete ocim-swift", shell=True)
         subprocess.Popen("rclone config delete ocim-s3", shell=True)
 
@@ -124,20 +152,22 @@ class Command(BaseCommand):
         command = "rclone copy -v ocim-swift:%s/%s ocim-s3:%s/%s" % (swift_container, key_name, s3_bucket, new_name)
         LOG.info("Will run this command: %s", command)
         p = subprocess.Popen(command, shell=True)
-        (output, err) = p.communicate()
-        p_status = p.wait()
+        p.communicate()
+        p.wait()
         # LOG.info("Command output: ", output)
 
     def _migrate_swift_to_s3(self, instance):
         """Create IAM user, S3 bucket, move all files from SWIFT to S3, and mark the instance as using S3."""
         # It still doesn't do error handling, so the first times you must review that it's doing the right thing
+        # A re-run might be needed if AWS takes longer than usual to make the user/bucket available.
+        # But normally the migration works in one run.
 
         # Check sanity
         assert instance.storage_type == 'swift'
         assert instance.swift_container_name
 
         # You may enable/disable many of these sections while testing or re-running, by changing 0 to 1
-        if 0:
+        if 1:  # pylint: disable=using-constant-test
             LOG.info("Creating IAM user")
             assert not instance.s3_access_key
             assert not instance.s3_secret_access_key
@@ -155,7 +185,7 @@ class Command(BaseCommand):
             assert instance.s3_access_key
             assert instance.s3_secret_access_key
 
-        if 0:
+        if 1:  # pylint: disable=using-constant-test
             LOG.info("Creating bucket (%s). Waiting some seconds between attempts", instance.s3_bucket_name)
             instance._create_bucket(retry_delay=6, attempts=8, location=S3_REGION)
 
@@ -187,7 +217,8 @@ class Command(BaseCommand):
 
             LOG.info("PROGRESS: Name: %s. Directory name: %s. Copied: %s", item['name'], base_name, copied)
 
-            # Avoid copying 'submissions_attachmentsbadges/folder/some.pdf' because it was already copied as part of 'submissions_attachmentsbadges'
+            # Avoid copying 'submissions_attachmentsbadges/folder/some.pdf' because it was already copied
+            # as part of 'submissions_attachmentsbadges'
             if base_name in copied:
                 LOG.info("Skipping %s", base_name)
                 continue
@@ -200,7 +231,7 @@ class Command(BaseCommand):
             # etc. and in addition there's a special case
             #   submissions_attachmentssubmissions_attachments ---> submissions_attachments
             # This part can be expanded as we find new cases through different servers
-            new_name = re.sub(r'^(submissions_attachments)/?', '\g<1>/', base_name)
+            new_name = re.sub(r'^(submissions_attachments)/?', r'\g<1>/', base_name)
             if new_name == 'submissions_attachments/submissions_attachments':
                 # special case. These files inside the submissions_attachments directory itself
                 new_name = 'submissions_attachments'
@@ -208,7 +239,8 @@ class Command(BaseCommand):
             # There's a special case which won't work and is tricky to implement: when a file is called
             # e.g. "submissions_attachments15100382041175505.jpg" (this happens with images uploaded to the forum).
             # In this case, the command to execute will be like:
-            #   rclone copy -v ocim-swift:hda_opencraft_hosting/submissions_attachments15100382041175505.jpg ocim-s3:ocim-hda-opencraft-hosting/submissions_attachments/15100382041175505.jpg
+            #   rclone copy -v ocim-swift:hda_opencraft_hosting/submissions_attachments15100382041175505.jpg \
+            #                ocim-s3:ocim-hda-opencraft-hosting/submissions_attachments/15100382041175505.jpg
             # and this unfortunately will create a *directory* called "submissions_attachments/15100382041175505.jpg",
             # with the file submissions_attachments15100382041175505.jpg in it. So the final path will be:
             # submissions_attachments/15100382041175505.jpg/submissions_attachments15100382041175505.jpg
@@ -216,9 +248,11 @@ class Command(BaseCommand):
             # Note that rclone's "sync" doesn't seem to rename files, so another method would be needed.
             # Instead of fixing this, don't fix it. Some reasons:
             # - The original file is part of a URL that includes submissions_attachments15100382041175505.jpg,
-            #   so it's not an error anymore, it's the official URL, and if you fix it by adding an / it won't be the same URL
-            # - Forum posts in mongo will be still pointing to the SWIFT URL, not to AWS, so noone cares about the URL in AWS
-            #   (verified by connecting to mongo and checking that the post stores the full URL with the SWIFT hostname)
+            #   so it's not an error anymore, it's the official URL, and if you fix it by adding
+            #   an / it won't be the same URL
+            # - Forum posts in mongo will be still pointing to the SWIFT URL, not to AWS, so noone cares about the URL
+            #   in AWS (verified by connecting to mongo and checking that the post stores the full URL with the
+            #   SWIFT hostname)
             #
 
             # There's another special case: we use a different "COMMON_OBJECT_STORE_LOG_SYNC_PREFIX" for SWIFT and S3
@@ -247,11 +281,11 @@ class Command(BaseCommand):
 
         LOG.info("Migrated! Copied: %i items. Full list: %s", len(copied), copied)
 
-        if 1:
+        if 1:  # pylint: disable=using-constant-test
             LOG.info("Cleaning rclone configs")
             self._delete_rclone_configs()
 
-        if 1:
+        if 1:  # pylint: disable=using-constant-test
             LOG.info("Did everything work? To change this instance to S3 type, press ENTER")
             input()
             instance.storage_type = 's3'
@@ -260,15 +294,15 @@ class Command(BaseCommand):
             # This could be automated if it will save work
             LOG.info("Please spawn a server yourself for instance %i, then test it and activate it", instance.id)
 
-        if 0:
-            LOG.info("Debug only! Press ENTER to delete IAM & bucket and clear those settings in the instance, and set it back to SWIFT. Then you can test this migration again and again. Or press C-c to end")
+        if 0:  # pylint: disable=using-constant-test
+            LOG.info("Debug only! Press ENTER to delete IAM & bucket and clear those settings in the instance, "
+                     "and set it back to SWIFT. Then you can test this migration again and again. Or press C-c to end")
             input()
             LOG.info("Deprovisioning S3...")
             instance.deprovision_s3()
             instance.storage_type = 'swift'
             instance.save()
             LOG.info("We're back to SWIFT")
-
 
     def handle(self, *args, **options):
         """
@@ -279,7 +313,7 @@ class Command(BaseCommand):
         # instances = OpenEdXInstance.objects.filter(storage_type='swift')
 
         # You can use this to choose the IDs, and filter in batches
-        instances = OpenEdXInstance.objects.filter(id__in=[1165, ])
+        instances = OpenEdXInstance.objects.filter(id__in=[11111, ])
 
         LOG.info("Will migrate %i instances", instances.count())
         for instance in instances:
