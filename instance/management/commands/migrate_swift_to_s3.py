@@ -244,6 +244,13 @@ class Command(BaseCommand):
                 # special case. These files inside the submissions_attachments directory itself
                 new_name = 'submissions_attachments'
 
+            # You may require to uncomment this depending on whether organization logos should be
+            # inside or outside submissions_attachments. SWIFT stored it inside (in a folder
+            # called "submissions_attachmentsorganization_logos") but some AWS URL was looking for
+            # them outside. To be tested
+            # elif new_name == 'submissions_attachments/organization_logos':
+            #     new_name = 'organization_logos'
+
             # There's a special case which won't work and is tricky to implement: when a file is called
             # e.g. "submissions_attachments15100382041175505.jpg" (this happens with images uploaded to the forum).
             # In this case, the command to execute will be like:
