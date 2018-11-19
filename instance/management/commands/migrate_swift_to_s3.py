@@ -205,6 +205,22 @@ class Command(BaseCommand):
                 # special case. These files inside the submissions_attachments directory itself
                 new_name = 'submissions_attachments'
 
+            # There's a special case which won't work and is tricky to implement: when a file is called
+            # e.g. "submissions_attachments15100382041175505.jpg" (this happens with images uploaded to the forum).
+            # In this case, the command to execute will be like:
+            #   rclone copy -v ocim-swift:hda_opencraft_hosting/submissions_attachments15100382041175505.jpg ocim-s3:ocim-hda-opencraft-hosting/submissions_attachments/15100382041175505.jpg
+            # and this unfortunately will create a *directory* called "submissions_attachments/15100382041175505.jpg",
+            # with the file submissions_attachments15100382041175505.jpg in it. So the final path will be:
+            # submissions_attachments/15100382041175505.jpg/submissions_attachments15100382041175505.jpg
+            #
+            # Note that rclone's "sync" doesn't seem to rename files, so another method would be needed.
+            # Instead of fixing this, don't fix it. Some reasons:
+            # - The original file is part of a URL that includes submissions_attachments15100382041175505.jpg,
+            #   so it's not an error anymore, it's the official URL, and if you fix it by adding an / it won't be the same URL
+            # - Forum posts in mongo will be still pointing to the SWIFT URL, not to AWS, so noone cares about the URL in AWS
+            #   (verified by connecting to mongo and checking that the post stores the full URL with the SWIFT hostname)
+            #
+
             # There's another special case: we use a different "COMMON_OBJECT_STORE_LOG_SYNC_PREFIX" for SWIFT and S3
             # In SWIFT without prefix (e.g. "logs/tracking"), in AWS with prefix (e.g. "some_host_name/logs/tracking")
             # Real example:
