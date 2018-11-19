@@ -89,7 +89,8 @@ class Command(BaseCommand):
         self.options = {}
         self.retried = {}
 
-    def _get_swift_connection(self, instance):
+    @staticmethod
+    def _get_swift_connection(instance):
         """
         Get Connection object.
         """
@@ -102,7 +103,8 @@ class Command(BaseCommand):
             os_options={'region_name': instance.swift_openstack_region}
         )
 
-    def _create_rclone_config_s3(self, instance):
+    @staticmethod
+    def _create_rclone_config_s3(instance):
         """
         Creates rclone config, for S3.
         """
@@ -116,7 +118,8 @@ class Command(BaseCommand):
         # LOG.info("Will run this command: %s", rclone_config)
         subprocess.Popen(rclone_config, shell=True)
 
-    def _create_rclone_config_swift(self, instance):
+    @staticmethod
+    def _create_rclone_config_swift(instance):
         """
         Creates rclone config, for SWIFT.
         """
@@ -134,14 +137,16 @@ class Command(BaseCommand):
         # LOG.info("Will run this command: %s", rclone_config)
         subprocess.Popen(rclone_config, shell=True)
 
-    def _delete_rclone_configs(self):
+    @staticmethod
+    def _delete_rclone_configs():
         """
         Remove temporary configs used during the migration.
         """
         subprocess.Popen("rclone config delete ocim-swift", shell=True)
         subprocess.Popen("rclone config delete ocim-s3", shell=True)
 
-    def _copy_subdirectory(self, key_name, new_name, swift_container, s3_bucket):
+    @staticmethod
+    def _copy_subdirectory(key_name, new_name, swift_container, s3_bucket):
         """
         Copy subdirectory using rclone
         """
@@ -156,6 +161,8 @@ class Command(BaseCommand):
         p.wait()
         # LOG.info("Command output: ", output)
 
+    # This is a long process with many steps and we don't gain much by moving steps to separate functions
+    # pylint: disable=too-many-statements
     def _migrate_swift_to_s3(self, instance):
         """Create IAM user, S3 bucket, move all files from SWIFT to S3, and mark the instance as using S3."""
         # It still doesn't do error handling, so the first times you must review that it's doing the right thing
@@ -187,6 +194,8 @@ class Command(BaseCommand):
 
         if 1:  # pylint: disable=using-constant-test
             LOG.info("Creating bucket (%s). Waiting some seconds between attempts", instance.s3_bucket_name)
+            # This private method doesn't have a public version
+            # pylint: disable=protected-access
             instance._create_bucket(retry_delay=6, attempts=8, location=S3_REGION)
 
         LOG.info("Preparing rclone")
