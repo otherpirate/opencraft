@@ -345,6 +345,8 @@ class OpenEdXDatabaseMixin(MySQLInstanceMixin, MongoDBInstanceMixin, RabbitMQIns
             "COMMON_MYSQL_READ_ONLY_PASS": self._get_mysql_pass(self.read_only_user),
             "COMMON_MYSQL_ADMIN_USER": self.admin_user,
             "COMMON_MYSQL_ADMIN_PASS": self._get_mysql_pass(self.admin_user),
+
+            # Common options to all django services
             "edx_django_service_default_db_conn_max_age": 0,
         }
 
